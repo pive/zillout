@@ -20,7 +20,8 @@ It can be run locally (localhost), within a local network and even on the intern
 - Audio library native node module
   - A first working version is commited (builds on OS X).
 - Web application
-  - Not done
+  - node server: first working version serving library (OS X only).
+  - client application: first version loading library files with minimal features.
 
 ## 3rd party code/libraries
 **Zillout** uses:
@@ -29,3 +30,5 @@ It can be run locally (localhost), within a local network and even on the intern
   - zlib - statically linked into the node.js module
   - v8, node and node-gyp
   - A public-domain hash function by Bob Jenkins
+  - node modules: express, socket.io and extend
+  - javascript client libraries: angular.js, bootstrap, ui-bootstrap and soundmanager2.
