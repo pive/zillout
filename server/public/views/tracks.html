@@ -1,0 +1,7 @@
+<div class="view" ng-show="display.tracks">
+	<h2>All tracks</h2>
+	<div ng-repeat="track in alltracks" ng-click="play($index)" class="track">
+		<div><small ng-show="track.playing">[>>playing]&nbsp;</small>{{ track.title }}</div>
+		<div><small>{{ track.artist }}</small></div>
+	</div>
+</div>

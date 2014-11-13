@@ -1,0 +1,20 @@
+.track {
+	background-color: transparent;
+	border-bottom: 1px solid #eee;
+    margin-bottom: 8px;
+    padding: 4px;
+}
+.track:hover {
+   background-color: #eee;
+   cursor: pointer;
+}
+.view {
+	padding: 8px;
+	color: #666;
+}
+.imgblock {
+	margin-right: 10px;
+}
+.deck {
+	padding: 6px;
+}

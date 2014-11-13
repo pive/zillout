@@ -48,6 +48,10 @@ void ZLLibraryWrapper::Init(Handle<Object> exports)
 	tpl->SetClassName(String::NewSymbol("ZLID3Library"));
 	tpl->InstanceTemplate()->SetInternalFieldCount(1);
 	tpl->PrototypeTemplate()->Set(String::NewSymbol("load"),FunctionTemplate::New(Load)->GetFunction());
+	tpl->PrototypeTemplate()->Set(String::NewSymbol("getAlbumImage"),FunctionTemplate::New(GetAlbumImage)->GetFunction());
+	tpl->PrototypeTemplate()->Set(String::NewSymbol("getTrackImage"),FunctionTemplate::New(GetTrackImage)->GetFunction());
+	tpl->PrototypeTemplate()->Set(String::NewSymbol("getTracks"),FunctionTemplate::New(GetTracks)->GetFunction());
+	tpl->PrototypeTemplate()->Set(String::NewSymbol("getTrackFile"),FunctionTemplate::New(GetTrackFile)->GetFunction());
 	constructor = Persistent<Function>::New(tpl->GetFunction());
 	exports->Set(String::NewSymbol("Library"), constructor);
 }
@@ -87,9 +91,9 @@ Handle<Value> ZLLibraryWrapper::Load(const Arguments& args)
 {
 	HandleScope scope;
 
-	if (args.Length() != 2)
+	if (args.Length() != 3)
 	{
-		return EXCEPTION("Two arguments required.");
+		return EXCEPTION("Three arguments required.");
 	}
 
 	if (!args[0]->IsFunction())
@@ -102,25 +106,203 @@ Handle<Value> ZLLibraryWrapper::Load(const Arguments& args)
 		return EXCEPTION("Second argument must be a callback.");
 	}
 
+	if (!args[2]->IsFunction())
+	{
+		return EXCEPTION("Third argument must be a callback.");
+	}
+
 	ZLLibraryWrapper* obj = ObjectWrap::Unwrap<ZLLibraryWrapper>(args.This());
+
+	ZLID3Library* pOldLibrary = obj->pLibrary;
+	obj->pLibrary = new ZLID3Library(pOldLibrary->path());
+	delete pOldLibrary;
+
 	obj->lock();
 	
 	ZLAsyncLoader* loader = new ZLAsyncLoader(
 		obj,
 		Persistent<Function>::New(Local<Function>::Cast(args[0])),
-		Persistent<Function>::New(Local<Function>::Cast(args[1]))
+		Persistent<Function>::New(Local<Function>::Cast(args[1])),
+		Persistent<Function>::New(Local<Function>::Cast(args[2]))
 		);
 
-	fprintf(stderr, "Start loader...\n");
 	loader->start();
 
 	return Undefined();
 }
 
+Handle<Value> ZLLibraryWrapper::GetAlbumImage(const Arguments& args)
+{
+	HandleScope scope;
+
+	if (args.Length() != 2)
+	{
+		return EXCEPTION("Two arguments required.");
+	}
+
+	if (!args[0]->IsString())
+	{
+		return EXCEPTION("First argument must be a string.");
+	}
+	if (!args[1]->IsString())
+	{
+		return EXCEPTION("Second argument must be a string.");
+	}
+
+	String::Utf8Value artist(args[0]);
+	String::Utf8Value album(args[1]);
+
+	ZLLibraryWrapper* obj = ObjectWrap::Unwrap<ZLLibraryWrapper>(args.This());
+	ZLID3Image* pImage    = obj->pLibrary->getAlbumImage((id3_utf8_t*)*artist, (id3_utf8_t*)*album);
+
+	if (pImage == NULL || pImage->buffer() == NULL)
+	{
+		return Undefined();
+	}
+
+	Buffer *buf = Buffer::New(pImage->size());
+	memcpy(Buffer::Data(buf), pImage->buffer(), pImage->size());
+
+	delete pImage;
+
+	return buf->handle_;
+}
+
+Handle<Value> ZLLibraryWrapper::GetTrackImage(const Arguments& args)
+{
+	HandleScope scope;
+
+	if (args.Length() != 1)
+	{
+		return EXCEPTION("One argument required.");
+	}
+
+	if (!args[0]->IsUint32())
+	{
+		return EXCEPTION("First argument must be a Uint32 value.");
+	}
+
+	ZLLibraryWrapper* obj = ObjectWrap::Unwrap<ZLLibraryWrapper>(args.This());
+	ZLID3Image* pImage    = obj->pLibrary->getTrackImage(args[0]->ToUint32()->Value());
+
+	if (pImage == NULL || pImage->buffer() == NULL)
+	{
+		return Undefined();
+	}
+
+	Buffer *buf = Buffer::New(pImage->size());
+	memcpy(Buffer::Data(buf), pImage->buffer(), pImage->size());
+
+	Local<Object> image = Object::New();
+
+	image->Set(String::NewSymbol("type"), String::New(pImage->mime()));
+	image->Set(String::NewSymbol("buffer"), buf->handle_);
+
+	delete pImage;
+
+	return scope.Close(image);
+}
+
+Handle<Value> ZLLibraryWrapper::GetTracks(const Arguments& args)
+{
+	HandleScope scope;
+	uint32_t start  = 0;
+	uint32_t length = 0;
+
+	if (args.Length() > 0)
+	{
+		if (!args[0]->IsUint32())
+		{
+			return EXCEPTION("First argument must be a Uint32 value.");
+		}
+		start = args[0]->ToUint32()->Value();
+	}
+	if (args.Length() > 1)
+	{
+		if (!args[1]->IsUint32())
+		{
+			return EXCEPTION("Second argument must be a Uint32 value.");
+		}
+		length = args[1]->ToUint32()->Value();
+	}
+
+	ZLLibraryWrapper* obj = ObjectWrap::Unwrap<ZLLibraryWrapper>(args.This());
+	ZLArrayList<ZLID3Track>* tracks = obj->pLibrary->getTrackList();
+
+	Local<Array> list = Array::New(tracks->length());
+
+	tracks->reset();
+	ZLID3Track* pTrack = tracks->next();
+	while (pTrack != NULL)
+	{
+		list->Set(pTrack->uid(), ZLLibraryWrapper::NewTrack(pTrack));
+		pTrack = tracks->next();
+	}
+
+	return scope.Close(list);
+}
+
+Handle<Value> ZLLibraryWrapper::GetTrackFile(const Arguments& args)
+{
+	HandleScope scope;
+
+	if (args.Length() != 1)
+	{
+		return EXCEPTION("One argument required.");
+	}
+
+	if (!args[0]->IsUint32())
+	{
+		return EXCEPTION("First argument must be a Uint32 value.");
+	}
+
+	ZLLibraryWrapper* obj = ObjectWrap::Unwrap<ZLLibraryWrapper>(args.This());
+	ZLID3Track* pTrack    = obj->pLibrary->getTrack(args[0]->ToUint32()->Value());
+
+	if (pTrack == NULL)
+	{
+		return Undefined();
+	}
+
+	return scope.Close(String::New(pTrack->path()));
+}
+
+Handle<Value> ZLLibraryWrapper::NewTrack(ZLID3Track* pTrack)
+{
+	HandleScope scope;
+
+	Local<Object> obj = Object::New();
+
+	obj->Set(String::NewSymbol("id"), Number::New(pTrack->uid()));
+
+	if (pTrack->artist() != NULL)
+		obj->Set(String::NewSymbol("artist"), String::New((const char*)pTrack->artist(), id3_utf8_size(pTrack->artist())-1));
+	
+	if (pTrack->album() != NULL)
+		obj->Set(String::NewSymbol("album"),  String::New((const char*)pTrack->album(), id3_utf8_size(pTrack->album())-1));
+
+	if (pTrack->title() != NULL)
+		obj->Set(String::NewSymbol("title"),  String::New((const char*)pTrack->title(), id3_utf8_size(pTrack->title())-1));
+
+	if (pTrack->tracknum() != NULL) {
+		char* stop;
+		double d = strtod((const char*)pTrack->tracknum(), &stop);
+		obj->Set(String::NewSymbol("number"), Number::New(d));
+	}
+
+	if (pTrack->year() != NULL)
+		obj->Set(String::NewSymbol("year"),   String::New((const char*)pTrack->year(), id3_utf8_size(pTrack->year())-1));
+
+	return scope.Close(obj);
+}
 
 /* ZLAsyncLoader
 -------------------------------------------------------------------------------
 */
+#define CALLBACK_TYPE_FILE_LOADED         0
+#define CALLBACK_TYPE_LIBRARY_LOADED      1
+#define CALLBACK_TYPE_ERROR               2
+
 ZLAsyncLoader::~ZLAsyncLoader()
 {
 }
@@ -135,16 +317,27 @@ void ZLAsyncLoader::run()
 void ZLAsyncLoader::msg(void* pData)
 {
 	HandleScope scope;
-
 	_CallbackData_t* pCallbackData = (_CallbackData_t*)pData;
-	if (pCallbackData->type == 0)
-	{
-		Handle<Value> argv[4];
 
-		argv[0] = Undefined();
-		argv[1] = String::New(pCallbackData->load.pszPath);
-		argv[2] = Undefined();
-		argv[3] = Number::New(pCallbackData->load.uTotalFiles);
+	if (pCallbackData->type == CALLBACK_TYPE_ERROR)
+	{
+		Handle<Value> argv[1];
+		argv[0] = String::New(pCallbackData->pszError);
+
+		TryCatch try_catch;
+		this->onErrorCallback->Call(Context::GetCurrent()->Global(), 1, argv);
+
+		if (try_catch.HasCaught())
+		{
+			FatalException(try_catch);
+		}
+	}
+	else if (pCallbackData->type == CALLBACK_TYPE_FILE_LOADED)
+	{
+		Handle<Value> argv[3];
+		argv[0] = Number::New(pCallbackData->load.uTrackUid);
+		argv[1] = Number::New(pCallbackData->load.uProcessedFiles);
+		argv[2] = Number::New(pCallbackData->load.uTotalFiles);
 
 		TryCatch try_catch;
 		this->onLoadFileCallback->Call(Context::GetCurrent()->Global(), 4, argv);
@@ -154,15 +347,10 @@ void ZLAsyncLoader::msg(void* pData)
 			FatalException(try_catch);
 		}
 	}
-	else
+	else if (pCallbackData->type == CALLBACK_TYPE_LIBRARY_LOADED)
 	{
-		Handle<Value> argv[2];
-
-		argv[0] = Undefined();
-		argv[1] = Undefined();
-
 		TryCatch try_catch;
-		this->onCompleteCallback->Call(Context::GetCurrent()->Global(), 2, argv);
+		this->onCompleteCallback->Call(Context::GetCurrent()->Global(), 0, NULL);
 
 		if (try_catch.HasCaught())
 		{
@@ -183,24 +371,47 @@ void ZLAsyncLoader::end()
 void ZLAsyncLoader::onLoadFile(const char* pszError, const char* pszPath, ZLID3Track* pTrack, uint32_t uTotalFiles)
 {
 	_CallbackData_t* pCallbackData = new _CallbackData_t;
-	pCallbackData->type = 0;
-	pCallbackData->pszError = pszError;
-	pCallbackData->load.pszPath = pszPath;
-	pCallbackData->load.pTrack = pTrack;
-	pCallbackData->load.uTotalFiles = uTotalFiles;
 
-	this->callv8(pCallbackData);
+	if (pszError != NULL)
+	{
+		pCallbackData->type     = CALLBACK_TYPE_ERROR;
+		pCallbackData->pszError = pszError;
+
+		this->callv8(pCallbackData);
+	}
+	else
+	{
+		pCallbackData->type     = CALLBACK_TYPE_FILE_LOADED;
+		pCallbackData->pszError = NULL;
+		
+		pCallbackData->load.uTrackUid       = pTrack->uid();
+		pCallbackData->load.uProcessedFiles = ++this->processed;
+		pCallbackData->load.uTotalFiles     = uTotalFiles;
+
+		this->callv8(pCallbackData);
+	}
 }
 
 /* on UV thread */
 void ZLAsyncLoader::onComplete(const char* pszError, class ZLID3Library* pLibrary)
 {
 	_CallbackData_t* pCallbackData = new _CallbackData_t;
-	pCallbackData->type = 1;
-	pCallbackData->pszError = pszError;
-	pCallbackData->complete.pLibrary = pLibrary;
 
-	this->callv8(pCallbackData);
+	if (pszError != NULL)
+	{
+		pCallbackData->type     = CALLBACK_TYPE_ERROR;
+		pCallbackData->pszError = pszError;
+
+		this->callv8(pCallbackData);
+	}
+	else
+	{
+		pCallbackData->type     = CALLBACK_TYPE_LIBRARY_LOADED;
+		pCallbackData->pszError = NULL;
+		
+		pCallbackData->complete.pLibrary = pLibrary;
+		this->callv8(pCallbackData);
+	}
 	this->cleanv8();
 }
 

@@ -1,0 +1,38 @@
+<div>
+	<!--p>No filter: {{ greeting }}</p>
+	<p>Reverse: {{ greeting | reverse }}</p>
+	<a custom-button>Click me</a-->
+	<small>{{ status }}</small>
+	<div ng-show="library.ready && !library.loading">
+		<input ng-model="library.path" />
+		<button type="button" ng-disabled="!library.loaded" ng-click="reload()" class="btn btn-sm btn-primary">load</button>
+	</div>
+	<tabset ng-show="library.loaded">
+		<tab heading="Tracks">
+			<div class="tabcontainer">
+				<h2>All tracks</h2>
+				<div ng-repeat="track in library.tracks" ng-click="playAllTracks(track.id)" class="track">
+					<div><small ng-show="track.playing">[>>playing]&nbsp;</small>{{ track.title }}</div>
+					<div><small>{{ track.artist }}</small></div>
+				</div>
+			</div>
+		</tab>
+		<tab heading="Artists">
+			<div class="tabcontainer">
+				<h2>Artists</h2>
+				<div ng-repeat="artist in library.artists" class="track">
+					<div ng-click="viewArtist(artist.name)">{{ artist.name }}</div>
+					<a ng-href="#/artists/{{ artist.name }}">Go</a>
+				</div>
+			</div>
+		</tab>
+		<tab heading="Albums">
+			<div class="tabcontainer">
+				<h2>Albums</h2>
+				<div ng-repeat="album in library.albums" ng-click="playAlbum(album.title)" class="track">
+					<div>{{ album.title }}</div>
+				</div>
+			</div>
+		</tab>
+	</tabset>	
+</div>

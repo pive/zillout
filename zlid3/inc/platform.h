@@ -51,6 +51,7 @@ typedef void* (*MallocProc)(void*, size_t);
 int _path_is_dir(const char* pszPath);
 int _path_exists(const char* path);
 const char* _path_find_filename(const char* pszPath);
+const char* _path_file_extension(const char* pszPath);
 char* _path_append(const char* pszBase, const char* pszAppend, MallocProc fpm, void* pData);
 
 /* walk into a directory recursively */

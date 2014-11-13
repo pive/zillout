@@ -30,22 +30,6 @@
 #define ARTIST_DICT_SIZE   1024
 #define ALBUM_DICT_SIZE    1024
 
-/* libid3tag API undeclared functions
--------------------------------------------------------------------------------
-*/
-# ifdef __cplusplus
-extern "C" {
-# endif
-
-id3_length_t id3_ucs4_utf8size(id3_ucs4_t const *);
-id3_length_t id3_utf8_length(id3_utf8_t const *);
-id3_length_t id3_utf8_size(id3_utf8_t const *);
-void         id3_utf8_encode(id3_utf8_t *, id3_ucs4_t const *);
-
-# ifdef __cplusplus
-}
-# endif
-
 
 /* ZLID3Track base
 -------------------------------------------------------------------------------
@@ -109,14 +93,38 @@ ZLID3Track::ZLID3Track(ZLFastHeap* pHeap, const char* pszPath, id3_tag* pID3Tag)
 				 && pID3Frame->nfields == 5 )
 		{
 			this->pImageFrame = pID3Frame;
+			continue;
 		}
-		/*
-			TODO
-				RVA2?
-				EQU2?
-				RBUF?
-				ASPI
-		*/
+		else if (strcmp("ZOBS", pID3Frame->id) == 0 && pID3Frame->nfields == 2)
+		{
+			id3_field* pFrameId = id3_frame_field(pID3Frame, 0);
+			id3_field* pBinary  = id3_frame_field(pID3Frame, 1);
+
+			if (    id3_field_type(pFrameId) == ID3_FIELD_TYPE_FRAMEID
+				 && id3_field_type(pBinary) == ID3_FIELD_TYPE_BINARYDATA    )
+			{
+				const char* obsid = id3_field_getframeid(pFrameId);
+				if (strcmp(obsid, "TYER") == 0)
+				{
+					id3_length_t datasize;
+					const id3_byte_t* data = id3_field_getbinarydata(pBinary, &datasize);
+
+					this->pYear = (id3_utf8_t*)this->pHeap->alloc(datasize+1);
+					if (data[0] == '\0')
+					{
+						datasize--;
+						memcpy(this->pYear, data+1, datasize);
+					}
+					else
+					{
+						memcpy(this->pYear, data, datasize);
+					}
+					this->pYear[datasize] = '\0';
+					continue;
+				}
+			}
+		}
+		//fprintf(stderr, "ZLID3Track::ZLID3Track(): unused frame id: %s\n", pID3Frame->id);
 	}
 }
 
@@ -165,10 +173,9 @@ ZLID3Image::ZLID3Image(bool fLoad, const char* pszSource, id3_frame* pID3Frame)
 {
 	this->pImageBuffer      = NULL;
 	this->sImageSize        = 0;
-	this->pszSourceFilePath = pszSource;
-
-	this->pImageMimeType = id3_field_getlatin1(id3_frame_field(pID3Frame, 1));
-	this->picType = (int)id3_field_getint(id3_frame_field(pID3Frame, 2));
+	this->pszSourceFilePath = _strdup(pszSource);
+	this->pImageMimeType    = _strdup((char*)id3_field_getlatin1(id3_frame_field(pID3Frame, 1)));
+	this->picType           = (int)id3_field_getint(id3_frame_field(pID3Frame, 2));
 
 	id3_field* pBinary = id3_frame_field(pID3Frame, 4);
 	if (pBinary != NULL && pBinary->type == ID3_FIELD_TYPE_BINARYDATA)
@@ -182,6 +189,33 @@ ZLID3Image::ZLID3Image(bool fLoad, const char* pszSource, id3_frame* pID3Frame)
 				memcpy(this->pImageBuffer, pBinary->binary.data, pBinary->binary.length);
 			}
 		}
+	}
+}
+
+ZLID3Image::ZLID3Image(ZLID3Image* pCopy)
+{
+	this->sImageSize        = pCopy->size();
+	this->pszSourceFilePath = _strdup(pCopy->source());
+	this->pImageMimeType    = _strdup(pCopy->mime());
+	this->picType           = pCopy->type();
+
+	if (pCopy->buffer() != NULL)
+	{
+		this->pImageBuffer = malloc(this->sImageSize);
+		if (this->pImageBuffer != NULL)
+		{
+			memcpy(this->pImageBuffer, pCopy->buffer(), this->sImageSize);
+		}
+	}
+}
+
+ZLID3Image::~ZLID3Image()
+{
+	free(this->pszSourceFilePath);
+	free(this->pImageMimeType);
+	if (this->pImageBuffer != NULL)
+	{
+		free(this->pImageBuffer);
 	}
 }
 
@@ -227,17 +261,34 @@ ZLID3Album::ZLID3Album(id3_utf8_t* pName, id3_utf8_t* pArtist)
 	this->pName   = pName;
 	this->pImage  = NULL;
 
-	this->tracks  = ZLArrayList<ZLID3Track>();
+	this->_tracks = ZLArrayList<ZLID3Track>();
+}
+
+ZLID3Album::~ZLID3Album()
+{
+	if (this->pImage != NULL)
+	{
+		delete this->pImage;
+	}
 }
 
 id3_utf8_t* ZLID3Album::index(ZLFastHeap* pHeap, id3_utf8_t* pName, id3_utf8_t* pArtist)
 {
 	id3_length_t sArtist = id3_utf8_size(pArtist);
 	id3_length_t sAlbum  = id3_utf8_size(pName);
-	id3_utf8_t*  pIndex  = (id3_utf8_t*)pHeap->alloc(sArtist + sAlbum + 1);
     id3_utf8_t   pSepr   = (id3_utf8_t)0x3A;
-	id3_utf8_t*  pValue  = pIndex;
+	id3_utf8_t*  pIndex;
 
+	if (pHeap != NULL)
+	{
+		pIndex = (id3_utf8_t*)pHeap->alloc(sArtist + sAlbum + 1);
+	}
+	else
+	{
+		pIndex = (id3_utf8_t*)malloc(sArtist + sAlbum + 1);
+	}
+
+	id3_utf8_t* pValue = pIndex;
 	memcpy(pValue, pArtist, sArtist);
 	pValue += id3_utf8_length(pArtist);
 	memcpy(pValue, &pSepr, 1);
@@ -249,7 +300,7 @@ id3_utf8_t* ZLID3Album::index(ZLFastHeap* pHeap, id3_utf8_t* pName, id3_utf8_t* 
 
 void ZLID3Album::addTrack(ZLID3Track* pTrack)
 {
-	this->tracks.push(pTrack);
+	this->_tracks.push(pTrack);
 }
 
 void ZLID3Album::setImage(bool fLoad, const char* pszSource, id3_frame* pID3Frame)
@@ -258,6 +309,11 @@ void ZLID3Album::setImage(bool fLoad, const char* pszSource, id3_frame* pID3Fram
 	{
 		this->pImage = new ZLID3Image(fLoad, pszSource, pID3Frame);
 	}
+}
+
+void ZLID3Album::setImage(ZLID3Image* pImage)
+{
+	this->pImage = new ZLID3Image(pImage);
 }
 
 ZLID3Artist::ZLID3Artist(const id3_utf8_t* pName)
@@ -306,6 +362,8 @@ ZLID3Library::ZLID3Library(const char* pszFilePath)
 	this->uAllocated      = 0;
 
 	this->pDisposableHeap = NULL;
+
+	this->_tracks = ZLArrayList<ZLID3Track>();
 
 	this->pDefaultAlbum  = (const id3_utf8_t*)"Unknown";
 	this->pDefaultArtist = (const id3_utf8_t*)"Unknown";
@@ -386,8 +444,13 @@ void ZLID3Library::load(ZLID3EventHandler* pHandler)
 
 int ZLID3Library::_countFiles(void* pData, const char* pszBase, const char* pszFile)
 {
+	const char* pszExt  = _path_file_extension(pszFile);
 	ZLID3Library* _THIS = (ZLID3Library*)pData;
-	_THIS->uTotalFiles++;
+
+	if (pszExt != NULL && strcmp(pszExt, "mp3") == 0)
+	{
+		_THIS->uTotalFiles++;
+	}
 
 	return 0;
 }
@@ -395,11 +458,16 @@ int ZLID3Library::_countFiles(void* pData, const char* pszBase, const char* pszF
 int ZLID3Library::_readFileID3Tag(void* pData, const char* pszBase, const char* pszFile)
 {
 	ZLID3Library* _THIS = (ZLID3Library*)pData;
+	ZLID3Track*   pTrack = NULL;
+ 	id3_file*     pID3File;
+
+	const char* pszExt  = _path_file_extension(pszFile);
+ 	if (pszExt == NULL || strcmp(pszExt, "mp3") != 0)
+ 	{
+ 		return 0;
+ 	}
 
 	char* pszPath = _path_append(pszBase, pszFile, ZLID3Library::_pathHeapAlloc, pData);
-
- 	id3_file*  pID3File;
-
  	_THIS->uProcessedFiles++;
 
 	/* get ID3 tags */
@@ -416,10 +484,10 @@ int ZLID3Library::_readFileID3Tag(void* pData, const char* pszBase, const char* 
 		return _THIS->err;
 	}
 
-	/*ZLID3Artist* pArtist;
+	ZLID3Artist* pArtist;
 	const id3_utf8_t*  pAlbumName;
-	ZLID3Track*  pTrack = new (_THIS->pTrackHeap) ZLID3Track(_THIS->pTrackHeap, pszPath, id3_file_tag(pID3File));
-	
+
+	pTrack = new (_THIS->pTrackHeap) ZLID3Track(_THIS->pTrackHeap, pszPath, id3_file_tag(pID3File));
 	if (pTrack->artist() != NULL)
 	{
 		pArtist = (ZLID3Artist*)_THIS->pArtistDict->get(pTrack->artist(), id3_utf8_size(pTrack->artist()));
@@ -439,6 +507,7 @@ int ZLID3Library::_readFileID3Tag(void* pData, const char* pszBase, const char* 
 		pArtist = _THIS->pUnknownArtist;
 	}
 	pArtist->addTrack(pTrack);
+	pTrack->uid(_THIS->_tracks.push(pTrack));
 
 	pAlbumName = pTrack->album();
 	if (pAlbumName == NULL)
@@ -464,13 +533,13 @@ int ZLID3Library::_readFileID3Tag(void* pData, const char* pszBase, const char* 
 		_THIS->uAllocated += pAlbum->image()->size();
 	}
 
-	_THIS->uTracks++;*/
+	_THIS->uTracks++;
 
 	id3_file_close(pID3File);
 	
 	if (_THIS->pHandler != NULL)
 	{
-		_THIS->pHandler->onLoadFile(NULL, (const char*)pszPath, /*pTrack*/NULL, _THIS->uTotalFiles);
+		_THIS->pHandler->onLoadFile(NULL, (const char*)pszPath, pTrack, _THIS->uTotalFiles);
 	}
 
 	return 0;
@@ -509,21 +578,78 @@ void ZLID3Library::dump()
 	printf("  Arrays: %u bytes (%u kb) \n", this->uAllocated, (uint32_t)(this->uAllocated/1024)); 
 }
 
-void ZLID3Library::dumpImage(const char* pszAlbum, const char* pszOutFile)
+ZLID3Image* ZLID3Library::getAlbumImage(id3_utf8_t* pArtistName, id3_utf8_t* pAlbumName)
 {
-	/*_ID3Album_t* pAlbumInfo = (_ID3Album_t*) this->pAlbumDict->get(pszAlbum);
-	if (pAlbumInfo == NULL)
+	id3_utf8_t* pIndex = ZLID3Album::index(NULL, pAlbumName, pArtistName);
+	ZLID3Album* pAlbum = (ZLID3Album*)this->pAlbumDict->get(pIndex, id3_utf8_size(pIndex));
+	free(pIndex);
+	if (pAlbum != NULL && pAlbum->image() != NULL)
 	{
-		TRACE1("%s not found.", pszAlbum);
-		return;
+		ZLID3Image* pImage = pAlbum->image();
+		if (pImage->buffer() == NULL)
+		{
+			/* get album tracks */
+			ZLArrayList<ZLID3Track>* tracks = pAlbum->tracks();
+			ZLID3Track* pTrack = tracks->next();
+			while (pTrack != NULL)
+			{
+				if (pTrack->imageFrame() != NULL)
+				{
+					ZLID3Image* pImage = this->getTrackImage(pTrack->uid());
+					if (pImage != NULL)
+					{
+						pAlbum->setImage(pImage);
+						delete pImage;
+						return pAlbum->image();
+					}
+				}
+				pTrack = tracks->next();
+			}
+		}
+		else
+		{
+			return pImage;
+		}
 	}
-
-	FILE* fd = fopen(pszOutFile, "w");
-	if (fd != NULL)
-	{
-		fwrite(pAlbumInfo->pImage->pImageBuffer, 1, pAlbumInfo->pImage->sImageSize, fd);
-		fclose(fd);
-	}*/
+	return NULL;
 }
 
+ZLID3Image* ZLID3Library::getTrackImage(uint32_t uid)
+{
+ 	id3_file*  pID3File;
+ 	id3_tag*   pID3Tag;
+ 	id3_frame* pID3Frame;
 
+	ZLID3Track* pTrack = this->_tracks.elemAt(uid);
+	if (pTrack == NULL)
+	{
+		return NULL;
+	}
+
+	/* get ID3 tags */
+	pID3File = id3_file_open(pTrack->path(), ID3_FILE_MODE_READONLY);
+	if (pID3File == 0)
+	{
+		return NULL;
+	}
+
+	/* search for APIC frame */
+	pID3Tag = id3_file_tag(pID3File);
+	if (pID3Tag == NULL)
+	{
+		return NULL;
+	}
+
+	pID3Frame = id3_tag_findframe(pID3Tag, "APIC", 0);
+	if (pID3Frame == NULL)
+	{
+		return NULL;
+	}
+
+	return new ZLID3Image(true, pTrack->path(), pID3Frame);
+}
+
+ZLID3Track* ZLID3Library::getTrack(uint32_t uid)
+{
+	return this->_tracks.elemAt(uid);
+}

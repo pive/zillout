@@ -45,10 +45,11 @@ public:
 			free(this->_theArray);
 		}
 	}
-	void push(T* el)
+	uint32_t push(T* el)
 	{
 		this->_theArray = (T**)realloc(this->_theArray, sizeof(T*) * (this->_length + 1)); 
-		this->_theArray[_length++] = el;
+		this->_theArray[this->_length++] = el;
+		return this->_length - 1;
 	}
 	bool contains(T* el)
 	{
@@ -77,6 +78,14 @@ public:
 			return NULL;
 		}
 		return this->_theArray[this->_iterator++];
+	}
+	T* elemAt(uint32_t ui)
+	{
+		if (ui >= this->_length)
+		{
+			return NULL;
+		}
+		return this->_theArray[ui];
 	}
 	uint32_t length()
 	{

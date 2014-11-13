@@ -22,6 +22,7 @@
 
 #include <v8.h>
 #include <node.h>
+#include <node_buffer.h>
 
 using namespace v8;
 using namespace node;
@@ -37,6 +38,9 @@ public:
 	void loadLibrary(ZLID3EventHandler* pHandler) { this->pLibrary->load(pHandler); }
 	void lock() { this->Ref(); }
 	void release() { this->Unref(); }
+
+	static v8::Handle<Value> NewTrack(ZLID3Track* pTrack);
+
 private:
 	ZLID3Library* pLibrary;
 
@@ -45,6 +49,15 @@ private:
 
 	static v8::Handle<v8::Value> New(const v8::Arguments& args);
 	static v8::Handle<v8::Value> Load(const v8::Arguments& args);
+	//static v8::Handle<v8::Value> GetArtists(const v8::Arguments& args);
+	//static v8::Handle<v8::Value> GetAlbums(const v8::Arguments& args);
+	static v8::Handle<v8::Value> GetTracks(const v8::Arguments& args);
+	//static v8::Handle<v8::Value> GetArtistTracks(const v8::Arguments& args);
+	//static v8::Handle<v8::Value> GetArtistAlbums(const v8::Arguments& args);
+	//static v8::Handle<v8::Value> GetAlbumTracks(const v8::Arguments& args);
+	static v8::Handle<v8::Value> GetAlbumImage(const v8::Arguments& args);
+	static v8::Handle<v8::Value> GetTrackImage(const v8::Arguments& args);
+	static v8::Handle<v8::Value> GetTrackFile(const v8::Arguments& args);
 	static v8::Persistent<v8::Function> constructor;
 };
 
@@ -55,7 +68,6 @@ private:
 struct _AsyncData_t {
 	class ZLAsyncWorker* _THIS;
 	void* pUserData;
-	uv_cond_t uv_cond;
 	uint32_t uid;
 };
 
@@ -64,9 +76,9 @@ struct _CallbackData_t {
 	const char* pszError;
 	union {
 		struct {
-			const char* pszPath;
-			class ZLID3Track* pTrack;
-			uint32_t    uTotalFiles;
+			uint32_t uTrackUid;
+			uint32_t uProcessedFiles;
+			uint32_t uTotalFiles;
 		} load;
 		struct {
 			class ZLID3Library* pLibrary;
@@ -163,11 +175,18 @@ class ZLAsyncLoader : public ZLAsyncWorker, ZLID3EventHandler
 {
 private:
 	ZLLibraryWrapper* pWrapper;
+	uint32_t processed;
 	Persistent<Function> onLoadFileCallback;
 	Persistent<Function> onCompleteCallback;
+	Persistent<Function> onErrorCallback;
 
 public:
-	ZLAsyncLoader(ZLLibraryWrapper* pWrapper, Persistent<Function> onLoad, Persistent<Function> onComplete) : pWrapper(pWrapper), onLoadFileCallback(onLoad), onCompleteCallback(onComplete) {}
+	ZLAsyncLoader(
+		ZLLibraryWrapper* pWrapper, 
+		Persistent<Function> onLoad, 
+		Persistent<Function> onComplete, 
+		Persistent<Function> onError
+		) : pWrapper(pWrapper), processed(0), onLoadFileCallback(onLoad), onCompleteCallback(onComplete), onErrorCallback(onError) {};
 	virtual ~ZLAsyncLoader();
 protected:
 	virtual void run();

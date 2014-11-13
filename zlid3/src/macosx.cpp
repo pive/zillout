@@ -93,6 +93,12 @@ char* _path_append(const char* pszBase, const char* pszAppend, MallocProc fpm, v
 	return pszNew;
 }
 
+const char* _path_file_extension(const char* pszPath)
+{
+	const char* p = strrchr(pszPath, '.');
+	return (p==NULL)?NULL:p+1;
+}
+
 /*
  ------------------------------------------------------------------------------
 	Walk into a directory recursively
