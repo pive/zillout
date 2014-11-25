@@ -1,4 +1,4 @@
-function zlMainCtrl($scope, zlId3, zlPlayer, zlRouter) {
+function zlMainCtrl($scope, zlId3, zlRouter) {
 
 	var zlMainCtrl = {};
 
@@ -15,40 +15,69 @@ function zlMainCtrl($scope, zlId3, zlPlayer, zlRouter) {
 		nav:      false,
 		tracks:   false
 	};
-	$scope.spy = {
-		path: ''
+	$scope.nav = {
+		songs:    true,
+		artists:  false,
+		playlist: false,
+		albums:   false
 	};
 
+	zlMainCtrl.navStatus = function(path) {
+		var map = {
+			'/artists': 'artists',
+			'/playlist': 'playlist',
+			'/albums': 'albums',
+		};
+
+		$scope.nav = {
+			songs:    false,
+			artists:  false,
+			playlist: false,
+			albums:   false
+		};
+
+		var active = 'songs';
+		for (var base in map) {
+			if (path.substr(0, base.length) === base) {
+				active = map[base];
+				break;
+			}
+		}
+
+		console.log('zlMainCtrl.navStatus - active: ' + active);
+		$scope.nav[active] = true;
+	}
+
 	zlMainCtrl.displayProgress = function() {
-		console.log('displaying progress.');
 		$scope.display = {
 			progress: true,
 			deck:     false,
 			nav:      false,
 			tracks:   false
 		}
+		console.log('zlMainCtrl.displayProgress - displaying progress, display: ' + JSON.stringify($scope.display));
 	}
 
 	zlMainCtrl.displayTracks = function() {
-		console.log('displaying tracks.');
 		$scope.display = {
 			progress: false,
 			deck:     true,
 			nav:      true,
 			tracks:   true
 		}
+		console.log('zlMainCtrl.displayTracks - displaying tracks, display: ' + JSON.stringify($scope.display));
 	}
 
 	/* zlid3 init and handlers */
 	zlMainCtrl.onID3Load = function(path) {
-		console.log('Library started loading: ' + path);
-		zlPlayer.stop();
+		console.log('zlMainCtrl.onID3Load - Library started loading: ' + path);
 		zlMainCtrl.displayProgress();
 		$scope.status = 'Library is loading ' + path + '...';
 	}
 
 	zlMainCtrl.onID3Progress = function(progress) {
 		if (!$scope.display.progress) {
+			console.log('zlMainCtrl.onID3Progress - progress not displayed, switch to progress display.');
 			zlMainCtrl.displayProgress();
 		}
 		$scope.progress.count  = Math.round((progress.count * $scope.progress.total) / progress.total);
@@ -56,9 +85,9 @@ function zlMainCtrl($scope, zlId3, zlPlayer, zlRouter) {
 	}
 
 	zlMainCtrl.onID3Loaded = function(path) {
-		console.log('Library finished loading: ' + path);
-		$scope.display.progress = false;
+		console.log('zlMainCtrl.onID3Loaded - Library finished loading: ' + path);
 		$scope.status = 'Library has loaded ' + path + '.';
+		zlMainCtrl.displayTracks();
 	}
 
 	zlMainCtrl.onID3Error = function(err) {
@@ -66,76 +95,43 @@ function zlMainCtrl($scope, zlId3, zlPlayer, zlRouter) {
 		$scope.display.progress = false;
 	}
 
-	zlMainCtrl.onID3Tracks = function(path, tracks) {
-		console.log('Library sent track list for ' + path + '(' + tracks.length + ')');
-		zlPlayer.load(tracks);
-	}
-
-	zlId3.on('load', zlMainCtrl.onID3Load);
+	zlId3.on('load',    zlMainCtrl.onID3Load);
 	zlId3.on('loading', zlMainCtrl.onID3Progress);
-	zlId3.on('loaded', zlMainCtrl.onID3Loaded);
+	zlId3.on('loaded',  zlMainCtrl.onID3Loaded);
 	zlId3.on('loaderr', zlMainCtrl.onID3Error);
-	zlId3.on('tracklist', zlMainCtrl.onID3Tracks);
-	zlId3.load();
 
-	/* zlPlayer init and handlers */
+	/* THIS IS NEVER CALLED AT THIS TIME
 	zlMainCtrl.onPlaylistChange = function() {
 		console.log('Playlist change event.');
 		if (zlRouter.location !== '/settings') {
 			zlMainCtrl.displayTracks();
 		}
+		console.log('zlMainCtrl.onPlaylistChange - display: ' + JSON.stringify($scope.display));
 	}
-	zlPlayer.on('playlist', zlMainCtrl.onPlaylistChange);
+	zlPlayer.on('playlist', zlMainCtrl.onPlaylistChange);*/
 
 	/* zlrouter init and handlers */
 	zlMainCtrl.onLocationChange = function() {
-		var path = zlRouter.location;
-		$scope.spy.path = path;
+
+		var path  = zlRouter.location;
+
 		if (path === '/settings') {
 			$scope.display = {
 				progress: false,
-				deck:     true,
+				deck:     $scope.display.deck,
 				nav:      false,
 				tracks:   false
 			}
 		}
 		else {
 			zlMainCtrl.displayTracks();
+			zlMainCtrl.navStatus(path);
 		}
+		console.log('zlMainCtrl.onLocationChange - display: ' + JSON.stringify($scope.display));
 	}
 	zlRouter.on('location', zlMainCtrl.onLocationChange);
 	/* call it once at init */
 	zlMainCtrl.onLocationChange();
-
-	/*zlMainCtrl.onLoadTrack = function() {
-		$scope.status = 'Track loaded.';
-	}
-
-	zlMainCtrl.onPlayTrack = function(index) {
-		$scope.status = 'Track playing.';
-		$scope.playindex = index;
-		$scope.library.tracks[$scope.playindex].playing = true;
-	}
-
-	zlMainCtrl.onStopTrack = function() {
-		console.log('zlMainCtrl.onStopTrack: ' + $scope.playindex);
-		$scope.library.tracks[$scope.playindex].playing = false;
-	}
-
-	zlMainCtrl.onEndTrack = function() {
-		$scope.library.tracks[$scope.playindex].playing = false;
-		$scope.playindex++;
-		$scope.playAllTracks($scope.playindex);
-	}
-
-	$scope.playAllTracks = function(index) {
-		zlPlayer.play(index);
-	}
-
-	zlPlayer.on('load', zlMainCtrl.onLoadTrack);
-	zlPlayer.on('play', zlMainCtrl.onPlayTrack);
-	zlPlayer.on('stop', zlMainCtrl.onStopTrack);
-	zlPlayer.on('end', zlMainCtrl.onEndTrack);*/
 
 	return zlMainCtrl;
 };

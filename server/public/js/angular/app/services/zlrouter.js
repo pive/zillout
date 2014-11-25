@@ -1,37 +1,29 @@
-function zlRouter($rootScope, $location) {
+function zlRouter($rootScope, $location, $routeParams, $window, zlEmitter) {
 
-	var zlRouter = {};
+	var zlRouter = zlEmitter.new([ 'location' ]);
 
-	zlRouter.listeners = {
-		location: []
-	};
 	zlRouter.location = $location.path();
+	zlRouter.params   = $routeParams;
 
 	console.log('zlRouter invoked, location: ' + zlRouter.location);
 
-	zlRouter.emit = function() {
-		var ev   = arguments[0];
-		if (ev in zlRouter.listeners) {
-			var args = [];
-			for (var i = 1; i < arguments.length; i++) {
-				args.push(arguments[i]);
-			}
-			zlRouter.listeners[ev].forEach(function(cb) {
-				setTimeout(function() { $rootScope.$apply(cb.apply(cb, args)); }, 0);
-			});
-		}
-	}
-
-	zlRouter.on = function(ev, cb) {
-		if (ev in zlRouter.listeners) {
-			zlRouter.listeners[ev].push(cb);
-		}
-	}
-
 	$rootScope.$on('$routeChangeSuccess', function (event, current, previous) {
-		zlRouter.location = current.originalPath;
-		zlRouter.emit('location', current.originalPath);
+		if (current.originalPath) {
+			zlRouter.location = current.originalPath;
+			zlRouter.params   = $routeParams;
+			console.log('$rootScope on $routeChangeSuccess, current: ' + current.originalPath);
+			console.log('$rootScope on $routeChangeSuccess, zlRouter emitting location event.');
+			zlRouter.emit('location', current.originalPath);
+		}
 	});
+
+	zlRouter.path = function(path) {
+		$location.path(path);
+	}
+
+	zlRouter.back = function() {
+		$window.history.back();
+	}
 
 	return zlRouter;
 }

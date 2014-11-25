@@ -68,9 +68,9 @@ var bootServer = function() {
 		console.log('IO - user connected');
 		zillout.iosocket = socket;
 		var status = {
-			loaded: zillout.loaded,
+			loaded:  zillout.loaded,
 			loading: zillout.loading,
-			path: zillout.root
+			path:    zillout.root
 		};
 		console.log('IO - status: ' + JSON.stringify(status));
 		zillout.iosocket.emit('status', status);
@@ -79,17 +79,17 @@ var bootServer = function() {
 			if (msg.cmd && msg.cmd === 'load' && !zillout.loading) {
 				loadLibrary(msg.path, socket);
 			}
+			else if (msg.cmd && msg.cmd === 'disconnect') {
+				zillout.iosocket.disconnect();
+			}
 		});
 	});
 	server.listen(zillout.port);
 
 	app.param('trackid', function (req, res, next, tid) {
-		console.log('trackid request: ' + tid);
-		if (/^\d+$/.exec(String(tid)))
-		{
-			console.log('trackid is a valid number.');
+		if (/^\d+$/.exec(String(tid))) {
+			next();
 		}
-		next();
 	});
 	app.get('/tracks/:trackid/image', function(req, res) {
 		image = zillout.library.getTrackImage(parseInt(req.params.trackid));
@@ -106,9 +106,16 @@ var bootServer = function() {
 		}
 		res.status(204).send();
 	});
+	app.get('/albums/:artist/:title/image', function(req, res) {
+		image = zillout.library.getAlbumImage(req.params.artist, req.params.title);
+		if (image) {
+			res.type(image.type);
+			return res.send(image.buffer);
+		}
+		res.status(204).send();
+	});
 	app.get('/tracks', function(req, res) {
 		tracks = zillout.library.getTracks();
-		console.log('get tracks (HTTP) ok.');
 		res.send(tracks);
 	});
 	app.get('/config', function(req, res) {

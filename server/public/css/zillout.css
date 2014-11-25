@@ -15,6 +15,34 @@
 .imgblock {
 	margin-right: 10px;
 }
-.deck {
-	padding: 6px;
+.player {
+  margin-top: -5px;
+  margin-left: 4px;
+}
+.main {
+  padding-top: 50px;
+  padding-bottom: 50px;
+}
+.navbar-fixed-top {
+  height: 50px;
+  padding: 5px;
+  background-color: rgba(255, 255, 255, 0.5);
+  border-bottom: 1px solid #ddd;
+}
+.navbar li {
+  padding-left: 4px;
+}
+.navbar-nav img {
+  border: 1px solid #aaa;
+}
+.navbar-nav li a {
+  margin-left: 20px;
+  padding: 8px 10px;;
+}
+.footer {
+    position: fixed; 
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 50px;
 }

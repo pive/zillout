@@ -1,0 +1,24 @@
+<div class="view" ng-show="display.tracks" ng-switch='artists.view'>
+	<div ng-switch-when='all'>
+		<h2>All artists</h2>
+		<div ng-repeat="artist in artists.list" ng-click="show(artist.name)" class="track">
+			<div>{{ artist.name }}</div>
+		</div>
+	</div>
+	<div ng-switch-when='artist'>
+		<h2>{{artists.name}}</h2>
+		<div ng-click="showTracks(artists.name)" class="track">
+			<div>Show all tracks</div>
+		</div>
+		<div ng-repeat="album in artists.albums" ng-click="showAlbum(artists.name, album.title)" class="track">
+			<div class="imgblock"><img ng-src="{{album.imgsrc}}" width="100px" height="100px"/> {{ album.title }}</div>
+		</div>
+	</div>
+	<div ng-switch-when='tracks'>
+		<h2>{{artists.name}} (all tracks)</h2>
+		<div ng-click="shuffle()" class="track"><span class="fa fa-random" style="color:#5cb85c;">&nbsp;</span>Shuffle</div>
+		<div ng-repeat="track in artists.tracks" ng-click="play($index)" class="track">
+			<div>{{ track.title }}</div>
+		</div>
+	</div>
+</div>

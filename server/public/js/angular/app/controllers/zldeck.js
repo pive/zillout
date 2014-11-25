@@ -19,6 +19,14 @@ function zlDeckCtrl($scope, zlId3, zlPlayer) {
 		zlPlayer.stop();
 	}
 
+	$scope.next = function() {
+		zlPlayer.next();
+	}
+
+	$scope.previous = function() {
+		zlPlayer.previous();
+	}
+
 	$scope.toggle = function() {
 		if ($scope.deck.playing) {
 			zlPlayer.pause();
@@ -42,9 +50,10 @@ function zlDeckCtrl($scope, zlId3, zlPlayer) {
 
 	zlDeckCtrl.onLoad = function(track) {
 		$scope.deck.imagesrc = '/tracks/' + track.id + '/image';
-		$scope.deck.title  = track.title;
-		$scope.deck.artist = track.artist;
-		$scope.deck.album  = track.album;
+		$scope.deck.title   = track.title;
+		$scope.deck.artist  = track.artist;
+		$scope.deck.album   = track.album;
+		$scope.deck.visible = true;
 	}
 
 	zlDeckCtrl.onProgress = function(time, duration) {

@@ -1,7 +1,6 @@
 <div class="view" ng-show="display.tracks">
-	<h2>All songs</h2>
-	<div ng-click="shuffle()" class="track"><span class="fa fa-random" style="color:#5cb85c;">&nbsp;</span>Shuffle</div>
-	<div ng-repeat="track in alltracks" ng-click="play($index)" class="track">
+	<h2><img ng-show="playlist.imgsrc" ng-src="{{playlist.imgsrc}}" width="100px" height="100px"/> {{playlist.title}}</h2>
+	<div ng-repeat="track in playlist.tracks" ng-click="play($index)" class="track">
 		<div><span ng-show="track.playing" class="fa fa-music" style="color:#ff0000;">&nbsp;</span>{{ track.title }}</div>
 		<div><small>{{ track.artist }}</small></div>
 	</div>

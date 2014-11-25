@@ -1,4 +1,4 @@
-function zlSettingsCtrl($scope, $location, zlId3) {
+function zlSettingsCtrl($scope, zlRouter, zlId3) {
 
 	var zlSettingsCtrl = {};
 
@@ -8,13 +8,19 @@ function zlSettingsCtrl($scope, $location, zlId3) {
 		path: zlId3.status.path
 	};
 
+	zlSettingsCtrl.onID3Loaded = function(path) {
+		console.log('zlSettingsCtrl.onID3Loaded - path: ' + path);
+		$scope.settings.path = path;
+	}
+	zlId3.on('loaded', zlSettingsCtrl.onID3Loaded);
+
 	$scope.reload = function() {
 		zlId3.load($scope.settings.path);
-		$location.path('#/');
+		zlRouter.path('#/');
 	}
 
 	$scope.close = function() {
-		$location.path('#/');
+		zlRouter.back();
 	}
 
 	return zlSettingsCtrl;

@@ -86,6 +86,7 @@ private:
 public:
 	ZLID3Image(bool, const char*, id3_frame*);
 	ZLID3Image(ZLID3Image*);
+	ZLID3Image(unsigned char*, size_t, const char*);
 	~ZLID3Image();
 
 	void*  buffer();
@@ -93,7 +94,6 @@ public:
 	char*  mime()   { return this->pImageMimeType; };
 	int    type()   { return this->picType; };
 	char*  source() { return this->pszSourceFilePath; };
-
 };
 
 /* Track object
@@ -219,6 +219,8 @@ class ZLID3Library
 
 		ZLID3Artist* pUnknownArtist;
 
+		static ZLID3Image* pDefaultImage;
+
 		static int   _readFileID3Tag(void* pData, const char* pszBase, const char* pszFile);
 		static int   _countFiles(void* pData, const char* pszBase, const char* pszFile);
 		static void* _pathHeapAlloc(void* pData, size_t desired);
@@ -240,4 +242,6 @@ class ZLID3Library
 		void dump();
 		ZLFastHeap* heap() { return this->pPathHeap; }
 		const char* path() { return this->pszBasePath; }
+
+		static ZLID3Image* getDefaultImage();
 };

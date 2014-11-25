@@ -21,7 +21,7 @@
 */
 
 #include "../inc/precomp.h"
-
+#include "../inc/vinyl-record.h"
 
 #define PATH_HEAP_SIZE     2048
 #define TRACK_HEAP_SIZE    2048
@@ -209,6 +209,20 @@ ZLID3Image::ZLID3Image(ZLID3Image* pCopy)
 	}
 }
 
+ZLID3Image::ZLID3Image(unsigned char* buf, size_t size, const char* pszMimeType)
+{
+	this->sImageSize        = size;
+	this->pszSourceFilePath = NULL;
+	this->pImageMimeType    = _strdup(pszMimeType);
+	this->picType           = 0;
+
+	this->pImageBuffer      = malloc(this->sImageSize);
+	if (this->pImageBuffer != NULL)
+	{
+		memcpy(this->pImageBuffer, buf, this->sImageSize);
+	}
+}
+
 ZLID3Image::~ZLID3Image()
 {
 	free(this->pszSourceFilePath);
@@ -221,7 +235,7 @@ ZLID3Image::~ZLID3Image()
 
 void* ZLID3Image::buffer()
 {
-	if (this->pImageBuffer == NULL && this->sImageSize != 0)
+	if (this->pImageBuffer == NULL && this->sImageSize != 0 && this->pszSourceFilePath != NULL)
 	{
 	 	id3_file*  pID3File;
 
@@ -253,7 +267,6 @@ void* ZLID3Image::buffer()
 	}
 	return this->pImageBuffer;
 }
-
 
 ZLID3Album::ZLID3Album(id3_utf8_t* pName, id3_utf8_t* pArtist)
 {
@@ -337,6 +350,7 @@ void ZLID3Artist::addTrack(ZLID3Track* pTrack)
 /* Quick mp3 tag management C++ API (wrapper around libid3tag API)
 -------------------------------------------------------------------------------
 */
+ZLID3Image* ZLID3Library::pDefaultImage = NULL;
 
 ZLID3Library::ZLID3Library(const char* pszFilePath)
 {
@@ -378,6 +392,15 @@ ZLID3Library::~ZLID3Library()
 
 	delete this->pArtistDict;
 	delete this->pAlbumDict;
+}
+
+ZLID3Image* ZLID3Library::getDefaultImage()
+{
+	if (ZLID3Library::pDefaultImage == NULL)
+	{
+		ZLID3Library::pDefaultImage = new ZLID3Image(&VinylRecordImage[0], sizeof(VinylRecordImage), "image/png");
+	}
+	return ZLID3Library::pDefaultImage;
 }
 
 void ZLID3Library::load(ZLID3EventHandler* pHandler)

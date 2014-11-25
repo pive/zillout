@@ -2,6 +2,7 @@
 <html ng-app="zillout">
 <head>
 	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+	<link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css">
 	<link rel="stylesheet" href="css/angular-ui.css">
 	<link rel="stylesheet" href="css/zillout.css">
 	<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.1/angular.min.js"></script>
@@ -10,6 +11,7 @@
 	<script src="/js/soundmanager/soundmanager2-nodebug-jsmin.js"></script>
 	<script src="/socket.io/socket.io.js"></script>
 	<script src="/js/angular/app/zlapp.js"></script>
+	<script src="/js/angular/app/services/zlemitter.js"></script>
 	<script src="/js/angular/app/services/zlid3.js"></script>
 	<script src="/js/angular/app/services/zlplayer.js"></script>
 	<script src="/js/angular/app/services/zlrouter.js"></script>
@@ -17,45 +19,62 @@
 	<script src="/js/angular/app/controllers/zldeck.js"></script>
 	<script src="/js/angular/app/controllers/zlsettings.js"></script>
 	<script src="/js/angular/app/controllers/zltracks.js"></script>
+	<script src="/js/angular/app/controllers/zlartists.js"></script>
+	<script src="/js/angular/app/controllers/zlalbums.js"></script>
+	<script src="/js/angular/app/controllers/zlplaylist.js"></script>
 </head>
-<body>
-	<div class="container" ng-controller="zlMainCtrl">
-		<h1>
-			Zillout&nbsp;
-		 	<small>Your personal web music player.</small>
-		 	<div class="pull-right">
-		 		<a href="#/settings" class="btn btn-warning btn-small" role="button"><span class="glyphicon glyphicon-wrench"></span></a>
-		 	</div>
-		</h1>
-		<div><small>{{ spy.path }}</small></div>
+<body ng-controller="zlMainCtrl">
+	<nav class="navbar navbar-fixed-top">
+		<div class="container">
+			<div class="navbar-header">
+				<img src='/media/zillout.png' />
+			</div>
+			<div id="navbar" class="navbar-collapse collapse" ng-controller="zlDeckCtrl">
+				<ul class="nav navbar-nav navbar-right">
+					<li><a href="#/settings" class="btn btn-warning btn-small" role="button"><span class="glyphicon glyphicon-wrench"></span></a></li>
+				</ul>
+				<ul class="nav navbar-nav navbar-right" ng-show="display.deck && deck.visible">
+		            <li><img ng-src="{{deck.imagesrc}}" width="39px" height="39px"/></li>
+		            <li><div>{{ deck.title }}</div><small>{{ deck.artist }}</small><small ng-show="deck.album"> - {{ deck.album }}</small></li>
+		            <li class="player">
+		            	<div style="text-align: center;"><small>{{ deck.time }}</small></div>
+		            	<div>
+							<button type="button" ng-click="previous()" class="btn btn-primary btn-xs">
+								<span class="glyphicon glyphicon-fast-backward"></span>
+							</button>
+							<button type="button" ng-class="{active: deck.playing}" ng-click="toggle()" class="btn btn-primary btn-xs">
+								<span ng-class="{'glyphicon-pause': deck.playing, 'glyphicon-play': !deck.playing }" class="glyphicon glyphicon-play"></span>
+							</button>
+							<button type="button" ng-click="stop()" class="btn btn-primary btn-xs">
+								<span class="glyphicon glyphicon-stop"></span>
+							</button>
+							<button type="button" ng-click="next()" class="btn btn-primary btn-xs">
+								<span class="glyphicon glyphicon-fast-forward"></span>
+							</button>
+		            	</div>
+		            </li>
+		        </ul>
+          	</div>
+		</div>
+	</nav>
+	<div class="main container clear-top">
 		<div class="progress" ng-show="display.progress">
 			<div><small>{{ status }}</small></div>
 			<progressbar animate="false" max="progress.total" value="progress.count"></progressbar>
-		</div>
-		<div ng-controller="zlDeckCtrl" class="container">
-			<div ng-show="display.deck" class="panel panel-default col-md-6 deck">
-				<div class="pull-left imgblock" ng-show="deck.imagesrc"><img ng-src="{{deck.imagesrc}}" width="100px" height="100px"/></div>
-				<div>{{ deck.title }}</div>
-				<small>{{ deck.artist }}</small><small ng-show="deck.album"> [{{ deck.album }}]</small>
-				<div>{{ deck.time }}</div>
-				<div>
-					<button type="button" ng-class="{active: deck.playing}" ng-click="toggle()" class="btn btn-primary">
-						<span ng-class="{'glyphicon-pause': deck.playing, 'glyphicon-play': !deck.playing }" class="glyphicon glyphicon-play"></span>
-					</button>
-					<button type="button" ng-click="stop()" class="btn btn-primary">
-						<span class="glyphicon glyphicon-stop"></span>
-					</button>
-				</div>
-			</div>
-		</div>
-		<div class="btn-group btn-group-lg btn-group-justified" ng-show="display.nav">
-			<a role="button" class="btn btn-lg btn-default" href="#/tracks">Tracks</a>
-			<a role="button" class="btn btn-lg btn-default" href="#/artists">Artists</a>
-			<a role="button" class="btn btn-lg btn-default" href="#/albums">Albums</a>
 		</div>
 		<div ng-view>
 			<!-- view from route -->
 		</div>
 	</div>
+	<footer class="footer" style="background-color:#c2c2c2;">
+    	<div class="container" style="margin:0 auto;">
+			<div class="btn-group btn-group-lg btn-group-justified" ng-show="display.nav">
+				<a role="button" ng-class="{active: nav.songs}" class="btn btn-lg btn-default" href="#/tracks">Songs</a>
+				<a role="button" ng-class="{active: nav.artists}" class="btn btn-lg btn-default" href="#/artists">Artists</a>
+				<a role="button" ng-class="{active: nav.albums}" class="btn btn-lg btn-default" href="#/albums">Albums</a>
+				<a role="button" ng-class="{active: nav.playlist}" class="btn btn-lg btn-default" href="#/playlist">Playing</a>
+			</div>
+    	</div>
+    </footer>
 </body>
 </html>

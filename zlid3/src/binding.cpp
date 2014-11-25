@@ -157,20 +157,24 @@ Handle<Value> ZLLibraryWrapper::GetAlbumImage(const Arguments& args)
 
 	if (pImage == NULL || pImage->buffer() == NULL)
 	{
-		return Undefined();
+		pImage   = obj->pLibrary->getDefaultImage();
 	}
 
 	Buffer *buf = Buffer::New(pImage->size());
 	memcpy(Buffer::Data(buf), pImage->buffer(), pImage->size());
 
-	delete pImage;
+	Local<Object> image = Object::New();
 
-	return buf->handle_;
+	image->Set(String::NewSymbol("type"), String::New(pImage->mime()));
+	image->Set(String::NewSymbol("buffer"), buf->handle_);
+
+	return scope.Close(image);
 }
 
 Handle<Value> ZLLibraryWrapper::GetTrackImage(const Arguments& args)
 {
 	HandleScope scope;
+	bool fDefault = false;
 
 	if (args.Length() != 1)
 	{
@@ -187,7 +191,8 @@ Handle<Value> ZLLibraryWrapper::GetTrackImage(const Arguments& args)
 
 	if (pImage == NULL || pImage->buffer() == NULL)
 	{
-		return Undefined();
+		pImage   = obj->pLibrary->getDefaultImage();
+		fDefault = true;
 	}
 
 	Buffer *buf = Buffer::New(pImage->size());
@@ -198,7 +203,10 @@ Handle<Value> ZLLibraryWrapper::GetTrackImage(const Arguments& args)
 	image->Set(String::NewSymbol("type"), String::New(pImage->mime()));
 	image->Set(String::NewSymbol("buffer"), buf->handle_);
 
-	delete pImage;
+	if (!fDefault)
+	{
+		delete pImage;
+	}
 
 	return scope.Close(image);
 }
@@ -282,7 +290,14 @@ Handle<Value> ZLLibraryWrapper::NewTrack(ZLID3Track* pTrack)
 		obj->Set(String::NewSymbol("album"),  String::New((const char*)pTrack->album(), id3_utf8_size(pTrack->album())-1));
 
 	if (pTrack->title() != NULL)
+	{
 		obj->Set(String::NewSymbol("title"),  String::New((const char*)pTrack->title(), id3_utf8_size(pTrack->title())-1));
+	}
+	else
+	{
+		/* make sure it's got the filename for display */
+		obj->Set(String::NewSymbol("filename"),  String::New(_path_find_filename(pTrack->path())));
+	}
 
 	if (pTrack->tracknum() != NULL) {
 		char* stop;
